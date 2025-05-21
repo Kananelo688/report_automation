@@ -87,7 +87,7 @@ def insert_rows(ws, last_date, num_rows=7):
     """
     Inserts `num_rows` rows after each occurrence of `last_date` in column 3.
     Copies columns 1–3, incrementing the date in column 3 by 1 day per new row.
-    
+
     ------------
     Parameters:
         ws (Worksheet): openpyxl worksheet object.
@@ -128,6 +128,8 @@ def search_insert(ws,last_date):
         if hasattr(cell_value, 'date'):
             if cell_value.date() == last_date:
                 match_rows.append(row)
+    if len(match_rows) == 0:
+        raise ValueError(f'Given end date: {last_date} does not exist in the worksheet.')
     return match_rows
 
 def text_to_columns(worksheet, column_number, separator=" "):
@@ -137,8 +139,8 @@ def text_to_columns(worksheet, column_number, separator=" "):
     for i in range(1, worksheet.max_row + 1):
         if isinstance(worksheet.cell(row=i, column= column_number).value,str):
             split_cell = worksheet.cell(row=i, column= column_number).value.split(separator)
-        for j in range(len(split_cell)):
-            worksheet.cell(row=i,column=column_number+j).value=split_cell[j]
+            for j in range(len(split_cell)):
+                worksheet.cell(row=i,column=column_number+j).value=split_cell[j]
 
 class KPI:
     """

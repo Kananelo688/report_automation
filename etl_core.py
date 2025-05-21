@@ -1,13 +1,19 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
+#**********************************************************************************
+# Description: Module that defines Function that automates computation ETL Core 
+#               data of the Qlik Report
+# Filename: etl_core.py
+# Author: Kananelo Chabeli
+#*********************************************************************************
 
 import openpyxl as xl
 from datetime import datetime,timedelta,date
 import data_processing as dp
+from pathlib import Path
 
+
+# for file in Path('.').iterdir():
+#     if file.is_file():
+#         print(file.name)
 
 def insert_data(worksheet, row_idx,work,num_inserts = 7,**kwargs):
     """
@@ -75,26 +81,73 @@ def insert_data(worksheet, row_idx,work,num_inserts = 7,**kwargs):
         raise ValueError(f"Invalid 'work' given. Allowed values are '2G','3G','4G',pr 'VLR'. Given {work}")
        
 
-def etl_core(end_date,qlik_filename,core_attach_filename, core_vlr_filename,core_umac_filename,dr_attach_filename,dr_vlr_filename,verbose=False):
+def etl_core(end_date,verbose=False):
     """"
-        Central processor all the ETL Core Sheet.
+        Central processor all the ETL Core Sheet. This script read filenames from the current directory with following formats:
+            1. All Network KPI Qlik 2019.xlsx: This is the filename of the Qlik file where data will be inserted.
+            2. Core_Attach_KPIs.xlsx: This should be the filename of the attach KPIs exported from Core Network
+            3. Core_uMACv_KPIs.xlsx: This is filename of the uMACV KPIS(LTE KPIs) from Core.
+            4. Core_Vlr_KPIs.xlsx: This specifies the filename of the VLR
+            5. Dr_Attach_KPIs.xlsx: This is filename of the attach KPIs from the DR.
+            6. Dr_Vlr_KPIs.xlsx: This the filename of the Vlr KPIs from the DR
     """
+    if end_date is None:
+        raise ValueError('The end_date of Qlik where to insert data must be specified.')
     if verbose:
-        print("Loading spreadsheets...",end="",flush=True)
+        print("Analysing files in the current directory...",end="",flush=True)
+    
+    files = Path('.').iterdir()
+    qlik_filename = None
+    core_attach_filename = None
+    core_umac_filename = None
+    core_vlr_filename = None
+    dr_attach_filename = None
+    dr_vlr_filename = None
+    for file in files:
+        if file.name == 'All Network KPI Qlik 2019.xlsx':
+            qlik_filename = file.name
+        elif file.name == 'Core_Attach_KPIs.xlsx':
+            core_attach_filename = 'Core_Attach_KPIs.xlsx'
+        elif file.name == 'Core_uMACv_KPIs.xlsx':
+            core_umac_filename = 'Core_uMACv_KPIs.xlsx'
+        elif file.name == 'Core_Vlr_KPIs.xlsx':
+            core_vlr_filename = 'Core_Vlr_KPIs.xlsx'
+        elif file.name == 'Dr_Attach_KPIs.xlsx':
+            dr_attach_filename = 'Dr_Attach_KPIs.xlsx'
+        elif file.name == 'Dr_Vlr_KPIs.xlsx':
+            dr_vlr_filename = 'Dr_Vlr_KPIs.xlsx'
+    if qlik_filename is None:
+        raise ValueError('Qlik spreadsheet was not found. Please make sure that file "All Network KPI Qlik 2019.xlsx" exists.')
+    if core_attach_filename is None:
+        raise ValueError('Core Attach KPIs file not found. Please make sure the attach KPI spreadsheet from core exists and is named: "Core_Attach_KPIs.xlsx" .')
+    if core_umac_filename is None:
+        raise ValueError('uMACv Attach file not found. Please make sure that lTE attach(uMACv) spreadsheet from core exits and is named:"Core_uMACv_KPIs.xlsx".')
+    if core_vlr_filename is None:
+        raise ValueError('VLR file not found. Please make sure that the VLR User Measurement spreadsheet from the core exists and is named: "Core_Vlr_KPIs.xlsx".')
+    if dr_attach_filename is None:
+        raise ValueError ('Attach KPIs file from DR not found. Please make sure that the file exists and is  named: "Dr_Attach_KPIs.xlsx"')
+    if dr_vlr_filename is None:
+        raise ValueError('VLR User Measurement file from DR not found. Please make sure that the file exists and is named: "Dr_Vlr_KPIs.xlsx"')
+    if verbose:
+        print('done.\nAll Files found. Reading Spreadsheets...', end = ' ', flush = True)
+    
     qlik_wb = xl.load_workbook(qlik_filename)
     core_attach_wb = xl.load_workbook(core_attach_filename)
     core_umac_wb = xl.load_workbook(core_umac_filename)
     core_vlr_wb = xl.load_workbook(core_vlr_filename)
     dr_vlr_wb = xl.load_workbook(dr_vlr_filename)
     dr_attach_wb = xl.load_workbook(dr_attach_filename)
+    
     if verbose:
         print("done.\nReading data sheets...",end='',flush = True)
+    
     qlik_sheet =qlik_wb['ETL Core']
     core_attach_sheet = core_attach_wb['sheet1']
     core_umac_sheet = core_umac_wb['sheet1']
     core_vlr_sheet = core_vlr_wb['sheet1']
     dr_attach_sheet = dr_attach_wb['Sheet0']
     dr_vlr_sheet = dr_vlr_wb['Sheet0']
+    
     if verbose:
         print("done.\nPerforming text to columns on data...",end = '', flush = True)
     dp.text_to_columns(core_attach_sheet,2)
@@ -102,6 +155,7 @@ def etl_core(end_date,qlik_filename,core_attach_filename, core_vlr_filename,core
     dp.text_to_columns(core_vlr_sheet,2)
     dp.text_to_columns(dr_attach_sheet,1)
     dp.text_to_columns(dr_vlr_sheet,1)
+    
     if verbose:
         print("done.\nInitializing ETL Core sheet...",end = '', flush = True)
     
@@ -149,6 +203,7 @@ def etl_core(end_date,qlik_filename,core_attach_filename, core_vlr_filename,core
     kpi_dr_vlr_online_subs = dp.KPI('Number of On-line Subscribers in VLR','max')
     if verbose:
         print("done.\nInitializing KPI data(pivot tables)...",end='',flush=True)
+    
     #Generating data for 2G and 3G PDP KPI
     kpi_core_2G_PDP.generate_pivot_table(dp.pivot_table_data(core_attach_sheet,['Start'],kpi_core_2G_PDP.kpi_name))
     kpi_core_3G_PDP.generate_pivot_table(dp.pivot_table_data(core_attach_sheet,['Start'],kpi_core_3G_PDP.kpi_name))
@@ -177,7 +232,7 @@ def etl_core(end_date,qlik_filename,core_attach_filename, core_vlr_filename,core
     kpi_dr_vlr_online_subs.generate_pivot_table(dp.pivot_table_data(dr_vlr_sheet,['Begin'], kpi_dr_vlr_online_subs.kpi_name))
     
     if verbose:
-        print("done.\nComputing 2G Attach and PDP data...",end = '',flush = True)
+        print("done.\nComputing 2G Attach a nd PDP data...",end = '',flush = True)
    
     indx = dp.search_insert(qlik_sheet, end_date)
     insert_data(qlik_sheet,indx[0],'2G',
@@ -212,27 +267,16 @@ def etl_core(end_date,qlik_filename,core_attach_filename, core_vlr_filename,core
     if verbose:
         print('done.\nSaving files...',end = '',flush = True)
     qlik_wb.save('result_'+qlik_filename)
-    core_attach_wb.save(core_attach_filename)
-    core_vlr_wb.save(core_vlr_filename)
-    dr_attach_wb.save(dr_attach_filename)
-    dr_vlr_wb.save(dr_vlr_filename)
-    core_umac_wb.save(core_umac_filename)
+    qlik_wb.close()
+    core_attach_wb.close()
+    core_vlr_wb.close()
+    dr_attach_wb.close()
+    core_umac_wb.close()
     if verbose:
         print('done')
     
 def main():
-    print("Running Tests on the module:")
-    qlik_file = 'Qlik_Core_Test.xlsx'
-    core_attach_file = 'CORE_Attach KPIs.xlsx'
-    dr_attach_file = 'DR_ATTACH_KPIs.xlsx'
-    core_vlr_file = 'CORE_VLR User Measurement.xlsx'
-    dr_vlr_file = 'DR VLR SUBS-mohlalefim-20250505084845.xlsx'
-    core_umac_file = 'CORE_uMACV5 MME KPI.xlsx'
     date = datetime(2025,4,27).date()
-    etl_core(date,qlik_file,
-         core_attach_filename=core_attach_file,
-         core_vlr_filename=core_vlr_file,
-         core_umac_filename=core_umac_file,
-         dr_attach_filename=dr_attach_file,
-         dr_vlr_filename=dr_vlr_file,
-         verbose=True)
+    etl_core(date,verbose=True)
+if __name__ == '__main__':
+    main()
